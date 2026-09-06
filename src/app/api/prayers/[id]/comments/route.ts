@@ -18,7 +18,15 @@ const createSchema = z.object({
 /** GET /api/prayers/[id]/comments — 댓글 목록 (공개). 답글(대댓글)은 단일 깊이로 부모 아래 묶어 반환. */
 export async function GET(req: NextRequest, { params }: Params) {
   const { id } = params instanceof Promise ? await params : params;
+
+  // 댓글도 본문과 같은 기준으로 승인 멤버 전용 — 목록(GET /api/prayers)과 동일.
+  // 댓글 작성자 표시명 역시 실명을 포함하므로 비로그인에게 내주지 않는다.
   const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+  }
+  const gate = membershipGate(user);
+  if (gate) return gate;
 
   const prayer = await prisma.prayer.findUnique({ where: { id }, select: { userId: true } });
   if (!prayer) return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
@@ -35,6 +43,10 @@ export async function GET(req: NextRequest, { params }: Params) {
       userId: true,
       parentId: true,
       user: { select: { nickname: true, avatarUrl: true, role: true, membershipDecidedAt: true } },
+      // 좋아요는 개수만 세고, "내가 눌렀는지"는 내 행 1건만 골라 확인한다 —
+      // likes를 통째로 가져오면 인기 댓글 하나가 응답을 수백 행으로 부풀린다.
+      _count: { select: { likes: true } },
+      likes: { where: { userId: user.dbUserId }, select: { id: true }, take: 1 },
     },
   });
 
@@ -52,6 +64,8 @@ export async function GET(req: NextRequest, { params }: Params) {
       authorRole: c.user?.role ?? null,
       isNewcomer: isNewcomer(c.user?.membershipDecidedAt ?? null),
       isMine: !!user && c.userId === user.dbUserId,
+      likeCount: c._count.likes,
+      iLiked: c.likes.length > 0,
       // 작성자 본인 · 글쓴이(글 모더레이션) · 운영진+ 가 삭제 가능
       canDelete: !!user && (c.userId === user.dbUserId || postAuthorId === user.dbUserId || isStaff),
       // 수정은 본인 댓글만 — 모더레이션 권한과 분리
@@ -78,7 +92,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { id } = params instanceof Promise ? await params : params;
 
   const ip = getClientIp(req);
-  if (!checkRateLimit(ip, { windowMs: 60_000, max: 20 })) {
+  if (!checkRateLimit(`prayer-comment:${ip}`, { windowMs: 60_000, max: 20 })) {
     return NextResponse.json(
       { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
       { status: 429 },

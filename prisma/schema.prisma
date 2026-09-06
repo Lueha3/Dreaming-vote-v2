@@ -33,7 +33,16 @@ model User {
   membershipAppliedAt DateTime?
   membershipDecidedAt DateTime?
   membershipNote      String? // 거절 사유 (신청자에게 표시)
-  deletedAt           DateTime? // 탈퇴 처리 일시 — null이면 활성. 재로그인 시 즉시 해제(쿨다운 없음).
+  // 승인 후 최초 진입 시 성격유형 고르기(/start) 1회 안내를 마친 시각.
+  // null인 승인 멤버가 홈(/)에 오면 /start?welcome=1로 보낸다. 기록은 /start 실제 방문 시
+  // 클라이언트가 POST /api/my/start-seen으로 남긴다(홈 RSC 렌더에서 쓰면 프리페치가 소모해버림).
+  startPromptSeenAt   DateTime?
+  // 탈퇴 처리 일시 — null이면 활성. 탈퇴는 되돌릴 수 없다(재로그인은 새 행을 만든다).
+  // DB에 Prisma로 표현 불가한 CHECK 제약이 걸려 있다(마이그레이션 fix_withdrawal_resurrection):
+  //   CHECK ( ("supabaseId" LIKE 'withdrawn:%') = ("deletedAt" IS NOT NULL) )
+  // 즉 deletedAt과 supabaseId 툼스톤은 반드시 함께 세팅해야 한다 — lib/withdrawal.ts 경유 필수.
+  // (직접 update로 deletedAt만 찍으면 23514로 실패한다.)
+  deletedAt           DateTime?
   // 생일 축하 카드 발송용 — 연도는 받지 않는다(개인정보 최소화, 나이는 age로 이미 별도 수집).
   birthMonth          Int?
   birthDay            Int?
@@ -44,6 +53,7 @@ model User {
   prayers             Prayer[]
   prayerIntercessions PrayerIntercession[]
   prayerComments      PrayerComment[]
+  prayerCommentLikes  PrayerCommentLike[]
   announcements       Announcement[]       @relation("AuthoredAnnouncements")
   meetingReviews      ClubMeetingReview[]
   meetingImages       ClubMeetingImage[]   @relation("MeetingImageUploader")
@@ -53,9 +63,9 @@ model User {
   contentReports      ContentReport[]      @relation("ReportReporter")
   resolvedReports     ContentReport[]      @relation("ReportResolver")
   pushSubscriptions   PushSubscription[]
-  buddyRequestsSent     BuddyMatch[]       @relation("BuddyRequester")
-  buddyRequestsReceived BuddyMatch[]       @relation("BuddyRecipient")
   icebreakerPrompts   IcebreakerPrompt[]
+  supportTickets      SupportTicket[]
+  supportReplies      SupportReply[]       @relation("SupportStaff")
 
   @@index([membershipStatus, membershipAppliedAt])
 }
@@ -369,10 +379,27 @@ model PrayerComment {
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent  PrayerComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies PrayerComment[] @relation("CommentReplies")
+  likes   PrayerCommentLike[]
 
   @@index([prayerId, createdAt])
   @@index([userId])
   @@index([parentId])
+}
+
+// 광장 댓글 좋아요 — 댓글당 유저 1회(토글). 글 공감(PrayerIntercession)의 댓글판.
+// 행의 존재 자체가 "좋아요 눌림"이라 취소는 삭제다(토글 처닝은 API에서 rate limit).
+model PrayerCommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment PrayerComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 같은 댓글에 두 번 눌러도 행이 하나뿐이도록 — 동시 요청 경합의 최종 방어선.
+  @@unique([commentId, userId])
+  @@index([commentId])
 }
 
 // 동아리 카드뉴스 이미지 — 개설 시 등록, 순서 보존
@@ -457,21 +484,8 @@ model MetricSnapshot {
 // 연애 앱화 방지를 위해 같은 성별끼리만 신청 가능하고, 꿈터 경계는 넘어도 된다(공동체 전체 교류가 앱의 취지).
 // 한 사람당 활성(active) 짝꿍은 최대 1명 — API 트랜잭션에서 강제한다(대칭 유니크는 DB로 표현 불가).
 // status: pending(수락 대기) | active(성사) | declined(거절) | ended(해제/취소). 채팅 등 인앱 대화는 만들지 않는다.
-model BuddyMatch {
-  id          String    @id @default(cuid())
-  requesterId String // 짝꿍을 신청한 사람
-  recipientId String // 신청을 받은 사람
-  status      String    @default("pending")
-  createdAt   DateTime  @default(now())
-  respondedAt DateTime? // 수락/거절 시각
-  endedAt     DateTime? // 해제/취소 시각
-
-  requester User @relation("BuddyRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  recipient User @relation("BuddyRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-
-  @@index([requesterId, status])
-  @@index([recipientId, status])
-}
+// 짝꿍(BuddyMatch) 기능은 v2에서 제거됐다. DB 테이블 "BuddyMatch"는 원본 앱과 DB를 공유하므로
+// 남겨두며(이 스키마에서만 빠짐), `prisma db push`를 돌리면 Prisma가 그 테이블을 지우려 하니 주의.
 
 // 주간 아이스브레이커 질문 — 운영진이 /manage에서 등록하거나, 없으면 cron이 프리셋 풀에서
 // 자동 선택한다. 광장 상단에 고정 카드로 노출되고, "답변하기"로 작성한 일상 글이 Prayer.promptId로 연결된다.
@@ -502,4 +516,44 @@ model MonthlyRecap {
   topPostAuthorName   String?
   topPostReactionCount Int?
   createdAt           DateTime @default(now())
+}
+
+// 고객센터 문의 — 광장과 별개로 운영진에게 전달되는 1:1 문의/건의함.
+// isSecret=false(기본)면 승인 멤버 전체가 볼 수 있는 공개 게시판(광장과 동일한 노출 범위),
+// isSecret=true면 작성자 본인 + 운영진만 볼 수 있다. 두 옵션 다 미승인(pending 등) 유저도
+// 로그인만 하면 문의를 남기고 자기 글은 볼 수 있다(가입 절차 자체에 대한 문의도 여기로 온다) —
+// 다만 미승인 유저는 다른 사람의 공개 글까지는 못 본다(API에서 강제).
+// isAnonymous는 광장 '기도해주세요'와 동일한 의미로, 운영진에게도 신원을 가린다(진짜 익명).
+// 댓글 개념이 없다 — 답글(SupportReply)은 오직 운영진(staff+)만 작성 가능.
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  content     String
+  isAnonymous Boolean  @default(false)
+  isSecret    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies SupportReply[]
+
+  @@index([isSecret, createdAt])
+  @@index([userId])
+}
+
+// 고객센터 답글 — 운영진(staff+)만 작성. 작성한 스태프 본인·다른 운영진에게는 실명이 보이지만,
+// 문의를 남긴 당사자에게는 항상 "운영진"으로만 표시된다(개별 운영진이 답변 때문에 특정
+// 민원의 표적이 되지 않도록 — prayers/route.ts의 "익명 글은 관리자 신원도 숨긴다"와 같은 원칙을
+// 여기서는 답변자 쪽에 선제적으로 적용). staffId는 표시용이 아니라 내부 식별용이라 탈퇴해도
+// 보존할 필요가 없어 SetNull.
+model SupportReply {
+  id        String   @id @default(cuid())
+  ticketId  String
+  staffId   String?
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  staff  User?          @relation("SupportStaff", fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
 }

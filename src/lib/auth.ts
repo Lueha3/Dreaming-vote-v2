@@ -16,6 +16,7 @@ const AUTH_USER_SELECT = {
   approvedAge: true,
   role: true,
   deletedAt: true,
+  startPromptSeenAt: true,
 } as const;
 
 export type AuthUser = {
@@ -28,6 +29,7 @@ export type AuthUser = {
   age: number | null; // 가입신청서의 나이 — pending 중 재제출로 변경 가능(미확정)
   approvedAge: number | null; // 승인 시점 고정 나이 — 집단(러비아/유디코/엘리온) 판정의 불변 근거
   role: Role; // 전역 등급. 동아리장은 여기 없음(소유 동아리에서 파생). superadmin은 env로 승격
+  startPromptSeenAt: Date | null; // 승인 후 첫 진입의 /start 안내 완료 시각 — null이면 홈에서 1회 안내
 };
 
 /**
@@ -60,15 +62,12 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
       select: AUTH_USER_SELECT,
     });
 
-    // 탈퇴 후 재로그인 — 쿨다운 없이 즉시 복구. membershipStatus는 탈퇴 시
-    // 이미 'none'으로 찍혀 있어 /join에서 정상적으로 재가입 절차를 다시 밟는다.
-    if (dbUser?.deletedAt) {
-      dbUser = await prisma.user.update({
-        where: { id: dbUser.id },
-        data: { deletedAt: null },
-        select: AUTH_USER_SELECT,
-      });
-    }
+    // 탈퇴한 행은 절대 되살리지 않는다(fail-closed).
+    // 탈퇴 시 supabaseId를 'withdrawn:<id>'로 툼스톤하므로(lib/withdrawal.ts) 위 조회가
+    // 탈퇴 행을 반환하는 일은 원래 없다. 만약 반환된다면 데이터가 계약을 어긴 상태이므로,
+    // deletedAt을 지워 복구하지 말고(=DB CHECK 위반으로 로그인 자체가 깨진다)
+    // 없는 것으로 보고 아래에서 새 행을 만든다. 재가입은 /join 절차를 처음부터 다시 밟는다.
+    if (dbUser?.deletedAt) dbUser = null;
 
     // 첫 로그인 — 멱등 생성 (동시 첫로그인 race 안전을 위해 upsert)
     if (!dbUser) {
@@ -97,6 +96,7 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
       membershipStatus: dbUser.membershipStatus,
       age: dbUser.age,
       approvedAge: dbUser.approvedAge,
+      startPromptSeenAt: dbUser.startPromptSeenAt,
       // 슈퍼관리자 이메일은 DB 값과 무관하게 항상 superadmin으로 승격(첫 로그인 부트스트랩 포함).
       role: isSuperadminEmail(email) ? "superadmin" : (dbUser.role as Role),
     };

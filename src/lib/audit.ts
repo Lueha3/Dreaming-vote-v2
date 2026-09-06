@@ -22,7 +22,7 @@ export type AuditAction =
 export async function recordAudit(params: {
   actor: AuthUser | null;
   action: AuditAction;
-  targetType: "user" | "club" | "prayer" | "comment";
+  targetType: "user" | "club" | "prayer" | "comment" | "support_ticket" | "support_reply";
   targetId: string;
   summary: string;
   ip?: string | null;

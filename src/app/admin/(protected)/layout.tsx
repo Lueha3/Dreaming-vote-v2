@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Admin
             </span>
             <span className="text-zinc-700">|</span>
-            <span className="text-sm font-semibold text-white">BlueHumanity</span>
+            <span className="text-sm font-semibold text-white">동아리드림</span>
           </div>
 
           <nav className="flex items-center gap-5 text-sm">

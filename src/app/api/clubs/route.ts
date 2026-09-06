@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  if (!checkRateLimit(ip, { windowMs: 60_000, max: 5 })) {
+  if (!checkRateLimit(`club-create:${ip}`, { windowMs: 60_000, max: 5 })) {
     return NextResponse.json(
       { ok: false, code: "RATE_LIMIT", error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
       { status: 429 },

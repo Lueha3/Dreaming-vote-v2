@@ -14,10 +14,12 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const status = url.searchParams.get("status") ?? "pending";
 
+  // 탈퇴 행은 제외 — 탈퇴 시 membershipStatus가 'withdrawn'으로 바뀌므로
+  // deletedAt 필터가 없으면 이름·연락처가 전부 비어 있는 유령 행이 목록에 섞인다.
   const where =
     status === "all"
-      ? { membershipStatus: { not: "none" } }
-      : { membershipStatus: "pending" };
+      ? { deletedAt: null, membershipStatus: { not: "none" } }
+      : { deletedAt: null, membershipStatus: "pending" };
 
   const raw = await prisma.user.findMany({
     where,

@@ -5,6 +5,7 @@ import { findArchetype, type BibleArchetype } from "@/lib/bibleArchetypes";
 import { ArchetypeModal } from "@/app/components/ArchetypeTags";
 import { ArchetypeMedal, LineupDefs } from "./ArchetypeMedal";
 import { displayRoles, roleBadge, type Role } from "@/lib/roles";
+import { FEATURES } from "@/lib/features";
 
 export type LineupMember = {
   nickname: string | null;
@@ -47,7 +48,8 @@ export function ClubLineupBoard({
 
       <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {lineup.map((m, i) => {
-          const arch = m.archetype ? findArchetype(m.archetype) : undefined;
+          // 성격유형 기능이 꺼져 있으면 인물형 메달 대신 프로필 사진·닉네임으로 보여준다(모달 없음).
+          const arch = FEATURES.archetype && m.archetype ? findArchetype(m.archetype) : undefined;
           const clickable = !!arch;
           return (
             <button
@@ -65,21 +67,43 @@ export function ClubLineupBoard({
                 aria-hidden
               />
               <div className="mx-auto flex justify-center">
-                <ArchetypeMedal label={m.archetype} size={56} />
+                {FEATURES.archetype ? (
+                  <ArchetypeMedal label={m.archetype} size={56} />
+                ) : m.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.avatarUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-skyx/20 text-lg text-skyx-ink">
+                    {m.nickname?.[0] ?? "?"}
+                  </div>
+                )}
               </div>
-              <div className="mt-1 truncate text-[12px] font-bold text-ink">
-                {arch ? arch.label : "함께하는 중"}
-              </div>
-              <div className="truncate text-[10px] text-ink-faint">
-                {arch ? arch.type.replace(/.*\s/, "") : "성향 카드 준비 중"}
-              </div>
+              {FEATURES.archetype ? (
+                <>
+                  <div className="mt-1 truncate text-[12px] font-bold text-ink">
+                    {arch ? arch.label : "함께하는 중"}
+                  </div>
+                  <div className="truncate text-[10px] text-ink-faint">
+                    {arch ? arch.type.replace(/.*\s/, "") : "성향 카드 준비 중"}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-1 truncate text-[12px] font-bold text-ink">{m.nickname ?? "탈퇴한 멤버"}</div>
+              )}
               <div className="mt-1 flex items-center justify-center gap-0.5 truncate text-[9.5px] text-ink-soft">
                 {displayRoles(m.role, { isClubLeader: m.isOwner }).map((r) => (
                   <span key={r} className="leading-none" title={roleBadge(r)?.label}>
                     {roleBadge(r)?.emoji}
                   </span>
                 ))}
-                <span className="truncate">{m.nickname ?? "익명"}</span>
+                {/* 메달 모드에선 이름이 여기 한 번만 나오고, 사진 모드에선 위에 이미 나왔으니 생략 */}
+                {FEATURES.archetype && <span className="truncate">{m.nickname ?? "탈퇴한 멤버"}</span>}
               </div>
             </button>
           );
@@ -102,7 +126,9 @@ export function ClubLineupBoard({
       <div className="mt-4 rounded-2xl border border-white/85 bg-gradient-to-r from-gold/10 to-teal/10 px-4 py-3 text-[11.5px] leading-relaxed text-ink">
         💛 {isFull
           ? "라인업이 가득 찼어요 — 모두가 한 몸으로 세워가는 중이에요."
-          : "당신이 어떤 유형이든 상관 없어요. 이 빈자리는 모두의 자리예요."}
+          : FEATURES.archetype
+            ? "당신이 어떤 유형이든 상관 없어요. 이 빈자리는 모두의 자리예요."
+            : "누구든 환영이에요. 이 빈자리는 모두의 자리예요."}
       </div>
 
       {open && <ArchetypeModal archetype={open} onClose={() => setOpen(null)} />}

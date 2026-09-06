@@ -11,12 +11,12 @@ describe("getGroup — 나이→집단", () => {
     expect(getGroup(20)).toBe("러비아");
     expect(getGroup(26)).toBe("러비아");
   });
-  it("유디코 27~34", () => {
+  it("유디코 27~33", () => {
     expect(getGroup(27)).toBe("유디코");
-    expect(getGroup(34)).toBe("유디코");
+    expect(getGroup(33)).toBe("유디코");
   });
-  it("엘리온 35세~", () => {
-    expect(getGroup(35)).toBe("엘리온");
+  it("엘리온 34세~", () => {
+    expect(getGroup(34)).toBe("엘리온");
     expect(getGroup(60)).toBe("엘리온");
   });
   it("범위 밖은 null", () => {

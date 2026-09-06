@@ -13,30 +13,23 @@ type Person = {
   dreamGroup: string | null;
   isNewcomer: boolean;
   catchphrase: string | null;
-  traitOverlap: number;
   clubCount: number;
 };
 
-type Sort = "similar" | "dreamgroup" | "newcomer";
-
-const SORTS: { key: Sort; label: string }[] = [
-  { key: "similar", label: "나와 비슷한 성향" },
-  { key: "dreamgroup", label: "같은 꿈터" },
-  { key: "newcomer", label: "새가족 먼저" },
-];
-
-/** 멤버 둘러보기 — 승인 멤버만. 관심사·성향으로 아직 모르는 멤버를 발견하는 화면. */
+/**
+ * 멤버 둘러보기 — 승인 멤버만. v2에서는 정렬 탭(비슷한 성향·같은 꿈터·새가족 먼저)을 빼고
+ * 단순 목록만 남겼다. 순서는 서버가 닉네임순으로 내려준다.
+ */
 export default function PeoplePage() {
-  const [sort, setSort] = useState<Sort>("similar");
   const [items, setItems] = useState<Person[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [needJoin, setNeedJoin] = useState(false);
 
-  const load = useCallback(async (s: Sort) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setNeedJoin(false);
     try {
-      const data = await fetchJson<{ ok: true; items: Person[] }>(`/api/people?sort=${s}`);
+      const data = await fetchJson<{ ok: true; items: Person[] }>("/api/people");
       setItems(data.items ?? []);
     } catch (e) {
       if (e instanceof ApiError && e.code === "membership_required") setNeedJoin(true);
@@ -46,8 +39,8 @@ export default function PeoplePage() {
   }, []);
 
   useEffect(() => {
-    load(sort);
-  }, [sort, load]);
+    load();
+  }, [load]);
 
   if (needJoin) {
     return (
@@ -72,24 +65,7 @@ export default function PeoplePage() {
         <h1 className="mb-1.5 text-2xl font-extrabold text-ink">
           <span className="gradient-text">멤버 둘러보기</span>
         </h1>
-        <p className="text-sm text-ink-soft">아직 잘 모르는 청년부 멤버를 발견해보세요.</p>
-      </div>
-
-      <div className="mb-5 flex flex-wrap gap-2">
-        {SORTS.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => setSort(s.key)}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
-              sort === s.key
-                ? "bg-teal/15 text-teal-ink ring-1 ring-teal/40"
-                : "glass-soft text-ink-soft hover:bg-white/90 hover:text-ink"
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
+        <p className="text-sm text-ink-soft">우리 청년부 멤버들을 둘러보세요.</p>
       </div>
 
       {loading ? (
@@ -129,10 +105,7 @@ export default function PeoplePage() {
                   &ldquo;{p.catchphrase}&rdquo;
                 </p>
               )}
-              <p className="text-[11px] text-ink-faint">
-                가입 동아리 {p.clubCount}개
-                {sort === "similar" && p.traitOverlap > 0 && ` · 성향 겹침 ${p.traitOverlap}`}
-              </p>
+              <p className="text-[11px] text-ink-faint">가입 동아리 {p.clubCount}개</p>
             </li>
           ))}
         </ul>

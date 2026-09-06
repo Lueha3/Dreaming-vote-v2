@@ -192,7 +192,7 @@ export default function AdminClubsPage() {
                   </div>
 
                   <p className="text-xs text-zinc-600">
-                    개설자 {club.ownerNickname ?? "익명"} · 신청 {club.applicationCount}건 ·{" "}
+                    개설자 {club.ownerNickname ?? "탈퇴한 멤버"} · 신청 {club.applicationCount}건 ·{" "}
                     {club.maxMembers ? `정원 ${club.maxMembers}명 · ` : ""}
                     {new Date(club.createdAt).toLocaleDateString("ko-KR", {
                       year: "numeric",

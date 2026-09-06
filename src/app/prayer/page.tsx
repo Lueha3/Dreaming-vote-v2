@@ -33,6 +33,8 @@ export default function PlazaPage() {
   const [items, setItems] = useState<PlazaPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
+  // 목록이 권한으로 막힌 상태 — "글이 없어요"(빈 목록)와 구분해서 안내해야 오해가 없다.
+  const [gated, setGated] = useState<"login" | "join" | null>(null);
 
   // 작성 폼
   const [content, setContent] = useState("");
@@ -82,8 +84,13 @@ export default function PlazaPage() {
       const data = await fetchJson<ListResponse>(`/api/prayers?category=${encodeURIComponent(category)}`);
       setItems(data.items ?? []);
       setLoggedIn(data.loggedIn);
-    } catch {
+      setGated(null);
+    } catch (err) {
       setItems([]);
+      // 광장은 승인 멤버 전용 — 401(비로그인)과 membership_required(미승인)를 구분해 안내한다.
+      if (err instanceof ApiError && err.code === "membership_required") setGated("join");
+      else if (err instanceof ApiError && err.status === 401) setGated("login");
+      else setGated(null);
     }
     setLoading(false);
   }, [category]);
@@ -440,6 +447,18 @@ export default function PlazaPage() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-28 animate-pulse rounded-3xl bg-white/55" />
             ))}
+          </div>
+        ) : gated ? (
+          <div className="glass-card px-8 py-14 text-center">
+            <div className="mb-3 text-4xl">🔒</div>
+            <p className="mb-1.5 text-sm font-semibold text-ink">
+              {gated === "login"
+                ? "로그인하면 광장을 볼 수 있어요."
+                : "가입 승인 후 광장을 볼 수 있어요."}
+            </p>
+            <p className="text-xs leading-relaxed text-ink-soft">
+              멤버들이 나눈 이야기는 청년부 멤버에게만 보여요.
+            </p>
           </div>
         ) : items.length === 0 ? (
           <div className="glass-card px-8 py-14 text-center">

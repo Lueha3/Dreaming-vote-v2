@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { timeAgo } from "@/lib/time";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
-import { MiniHompyAd } from "@/components/home/MiniHompyAd";
 import { HomeClubCarousel } from "@/components/HomeClubCarousel";
 import { HomeSectionHeader } from "@/components/HomeSectionHeader";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -13,6 +12,7 @@ import { NewcomerBadge } from "@/components/NewcomerBadge";
 import { displayRoles } from "@/lib/roles";
 import { triggerHaptic } from "@/lib/haptics";
 import type { FeedData } from "@/lib/feed";
+import { FEATURES } from "@/lib/features";
 
 type Feed = FeedData;
 
@@ -670,14 +670,11 @@ export function HomeFeed({ initial }: { initial?: HomeView }) {
         </section>
       )}
 
-      {/* 광고 구좌 — '미니홈피' 부활 티저(2026.10). 광장 소식 바로 아래 고정. */}
-      <MiniHompyAd />
+      {/* 성향 카드 미작성 멤버 — 다음 스텝 유도(피드 아래). 성격유형 기능이 켜져 있을 때만. */}
+      {FEATURES.archetype && !hasPersonalityReport && <CreateCardCTA />}
 
-      {/* 성향 카드 미작성 멤버 — 다음 스텝 유도(피드 아래). 피드가 비어도 이 카드가 채워준다. */}
-      {!hasPersonalityReport && <CreateCardCTA />}
-
-      {/* 승인 멤버 + 성향카드 보유 + 피드 비었을 때의 부드러운 빈 상태 */}
-      {feedEmpty && hasPersonalityReport && <EmptyFeed />}
+      {/* 피드가 비었을 때의 부드러운 빈 상태(성격유형이 꺼져 있으면 카드 보유 여부와 무관) */}
+      {feedEmpty && (hasPersonalityReport || !FEATURES.archetype) && <EmptyFeed />}
     </div>
   );
 }
@@ -714,7 +711,7 @@ function WelcomeCard() {
       </div>
       <p className="mb-1.5 text-base font-bold text-ink">우리 청년부 소식을 받아보세요</p>
       <p className="mb-6 text-sm leading-relaxed text-ink-soft">
-        새로 생긴 동아리, 모임, 광장 이야기가 여기 모여요.
+        새로 생긴 동아리와 모임 소식이 여기 모여요.
         <br />
         로그인하고 함께해요!
       </p>

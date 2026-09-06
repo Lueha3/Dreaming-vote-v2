@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
       isPinned: true,
       createdAt: true,
       updatedAt: true,
-      author: { select: { nickname: true } },
+      // 작성자는 조회하지 않는다 — 이 엔드포인트는 비로그인에게도 열려 있고,
+      // 닉네임은 "집단-나이-실명" 형식이라 그대로 내보내면 운영진 실명이 공개된다.
+      // 운영진 화면은 별도 인증 API(/api/manage/announcements)에서 작성자를 받는다.
     },
   });
 
@@ -35,7 +37,6 @@ export async function GET(req: NextRequest) {
     isPinned: a.isPinned,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
-    authorNickname: a.author?.nickname ?? null,
   }));
 
   return NextResponse.json({ ok: true, items });

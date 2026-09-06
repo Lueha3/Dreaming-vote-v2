@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { FEATURES } from "@/lib/features";
 
 const TABS = [
   { href: "/manage", label: "멤버 역할", emoji: "🧑‍🤝‍🧑" },
@@ -10,10 +11,11 @@ const TABS = [
   { href: "/manage/announcements", label: "전체 공지", emoji: "📢" },
   { href: "/manage/clubs", label: "동아리 관리", emoji: "🎯" },
   { href: "/manage/reports", label: "신고", emoji: "🚨" },
-  { href: "/manage/icebreaker", label: "이번 주 질문", emoji: "💬" },
+  // 이번 주 질문은 광장 기능에 속한다 — 광장이 꺼져 있으면 관리 탭에서도 뺀다.
+  ...(FEATURES.plaza ? [{ href: "/manage/icebreaker", label: "이번 주 질문", emoji: "💬" }] : []),
   { href: "/manage/stats", label: "운영 지표", emoji: "📊" },
   { href: "/manage/audit", label: "감사 로그", emoji: "🧾" },
-] as const;
+];
 
 export function ManageNav() {
   const pathname = usePathname();

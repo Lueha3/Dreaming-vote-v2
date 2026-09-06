@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchJson } from "@/lib/http";
+import { FEATURES } from "@/lib/features";
 
 const DISMISS_KEY = "onboarding-checklist-dismissed";
 
@@ -13,12 +14,19 @@ type Steps = {
   firstEngagement: boolean;
 };
 
-const ITEMS = [
+const ALL_ITEMS = [
   { key: "personalityDone", label: "성격유형 고르기", href: "/start", emoji: "🧭" },
   { key: "clubJoined", label: "동아리 가입하기", href: "/clubs", emoji: "👥" },
   { key: "pushEnabled", label: "휴대폰 알림 켜기", href: "/my/profile", emoji: "🔔" },
   { key: "firstEngagement", label: "광장에 첫 글·댓글 남기기", href: "/prayer", emoji: "🗣" },
 ] as const satisfies readonly { key: keyof Steps; label: string; href: string; emoji: string }[];
+
+// 꺼진 기능(성격유형·광장)의 항목은 체크리스트에서 아예 빼서 진행률에도 세지 않는다.
+const ITEMS = ALL_ITEMS.filter((item) => {
+  if (item.key === "personalityDone") return FEATURES.archetype;
+  if (item.key === "firstEngagement") return FEATURES.plaza;
+  return true;
+});
 
 /**
  * 새가족 체크리스트 — 홈 피드 상단에 진행률 카드로 노출.

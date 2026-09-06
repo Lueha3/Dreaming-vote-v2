@@ -22,11 +22,34 @@ type CommentItem = {
   isMine: boolean;
   canDelete: boolean;
   canEdit: boolean;
+  likeCount: number;
+  iLiked: boolean;
 };
 
 type TopComment = CommentItem & { replies: CommentItem[] };
 
 type ListResponse = { ok: true; items: TopComment[]; loggedIn: boolean };
+
+/**
+ * 최상위 댓글과 답글이 서로 다른 깊이에 있어, 한 건을 고치려면 어느 쪽인지 알아야 한다.
+ * parentId가 있으면 그 부모의 replies 안에서, 없으면 최상위에서 찾아 patch를 적용한다.
+ * (수정·좋아요 낙관적 갱신이 같은 자리를 짚도록 한 곳에 모아둔다.)
+ */
+function patchComment(
+  items: TopComment[],
+  id: string,
+  parentId: string | undefined,
+  patch: (c: CommentItem) => CommentItem,
+): TopComment[] {
+  return items.map((p) => {
+    if (parentId) {
+      if (p.id !== parentId) return p;
+      return { ...p, replies: p.replies.map((r) => (r.id === id ? patch(r) : r)) };
+    }
+    // 최상위는 replies를 함께 들고 있으므로 patch 결과를 덮어씌워 replies가 날아가지 않게 한다.
+    return p.id === id ? { ...p, ...patch(p) } : p;
+  });
+}
 
 /** 엔터 = 줄바꿈만, 전송은 버튼으로만 — textarea + form이므로 Enter가 자동 submit하지 않는다. */
 function CommentComposer({
@@ -84,16 +107,36 @@ function CommentRow({
   onDelete,
   onEdit,
   onReply,
+  onToggleLike,
 }: {
   comment: CommentItem;
   loggedIn: boolean;
   onDelete: () => void;
   onEdit: (content: string) => void;
   onReply?: () => void;
+  onToggleLike: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reported, setReported] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const { open: openPeek } = useProfilePeek();
+
+  const canReport = loggedIn && !comment.isMine;
+  const hasMoreActions = comment.canEdit || canReport || comment.canDelete;
+
+  // 외부 클릭 시 ⋯ 메뉴 닫기 (PlazaPostCard·Header 햄버거와 동일한 패턴)
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handle(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [moreOpen]);
 
   return (
     <div className="flex items-start gap-2">
@@ -113,36 +156,67 @@ function CommentRow({
         )}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-medium text-ink">{comment.authorName}</span>
-          {displayRoles(comment.authorRole).map((r) => (
-            <RoleBadge key={r} role={r} size="sm" />
-          ))}
-          {comment.isNewcomer && <NewcomerBadge size="sm" />}
-          <span className="shrink-0 whitespace-nowrap text-xs text-ink-faint">
-            · {timeAgo(comment.createdAt)}
-          </span>
-          {isEdited(comment.createdAt, comment.updatedAt) && (
-            <span className="shrink-0 whitespace-nowrap text-xs text-ink-faint">· 수정됨</span>
+        {/* ⋯는 wrap 컨테이너 '밖'에 둔다 — 안에 두면 닉네임·배지가 길 때 함께 밀려
+            혼자 다음 줄로 떨어진다(PlazaPostCard 헤더와 같은 구조). */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium text-ink">{comment.authorName}</span>
+            {displayRoles(comment.authorRole).map((r) => (
+              <RoleBadge key={r} role={r} size="sm" />
+            ))}
+            {comment.isNewcomer && <NewcomerBadge size="sm" />}
+            <span className="shrink-0 whitespace-nowrap text-xs text-ink-faint">
+              · {timeAgo(comment.createdAt)}
+            </span>
+            {isEdited(comment.createdAt, comment.updatedAt) && (
+              <span className="shrink-0 whitespace-nowrap text-xs text-ink-faint">· 수정됨</span>
+            )}
+          </div>
+          {hasMoreActions && (
+            <div className="relative shrink-0" ref={moreRef}>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((o) => !o)}
+                aria-label="댓글 더보기"
+                aria-haspopup="true"
+                aria-expanded={moreOpen}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-white/70 hover:text-ink"
+              >
+                ⋯
+              </button>
+              {moreOpen && (
+                <div
+                  className="glass-card absolute right-0 top-[calc(100%+0.25rem)] z-10 w-36 overflow-hidden p-1.5"
+                  style={{ background: "rgba(255,255,255,.96)" }}
+                >
+                  {comment.canEdit && !editing && (
+                    <button
+                      onClick={() => { setMoreOpen(false); setEditContent(comment.content); setEditing(true); }}
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs text-ink-soft hover:bg-white/80 hover:text-ink"
+                    >
+                      ✏️ 수정
+                    </button>
+                  )}
+                  {canReport && !reported && (
+                    <button
+                      onClick={() => { setMoreOpen(false); setReportOpen(true); }}
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs text-ink-soft hover:bg-white/80 hover:text-ink"
+                    >
+                      🚨 신고
+                    </button>
+                  )}
+                  {comment.canDelete && (
+                    <button
+                      onClick={() => { setMoreOpen(false); setConfirmDelete(true); }}
+                      className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50"
+                    >
+                      🗑 삭제
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
-          <span className="ml-auto flex items-center gap-2">
-            {comment.canEdit && !editing && (
-              <button
-                onClick={() => { setEditContent(comment.content); setEditing(true); }}
-                className="text-xs text-ink-faint transition-colors hover:text-ink"
-              >
-                수정
-              </button>
-            )}
-            {comment.canDelete && (
-              <button
-                onClick={onDelete}
-                className="text-xs text-ink-faint transition-colors hover:text-red-500"
-              >
-                삭제
-              </button>
-            )}
-          </span>
         </div>
         {editing ? (
           <div className="mt-1 space-y-1.5">
@@ -176,13 +250,56 @@ function CommentRow({
           </p>
         )}
         <div className="mt-1 flex items-center gap-3">
+          <button
+            onClick={onToggleLike}
+            disabled={!loggedIn}
+            aria-pressed={comment.iLiked}
+            aria-label={comment.iLiked ? "좋아요 취소" : "좋아요"}
+            /* -my-1.5 py-1.5 — 손가락이 닿는 영역만 위아래로 넓히고 줄 높이는 그대로 둔다.
+               text-xs 글자 높이(약 16px)만으로는 모바일에서 정확히 겨누기 어렵다. */
+            className={`-my-1.5 flex items-center gap-1 py-1.5 text-xs transition-colors disabled:opacity-40 ${
+              comment.iLiked ? "text-rose-500" : "text-ink-faint hover:text-rose-400"
+            }`}
+          >
+            <span aria-hidden>{comment.iLiked ? "❤️" : "🤍"}</span>
+            {comment.likeCount > 0 && <span>{comment.likeCount}</span>}
+          </button>
           {onReply && (
             <button onClick={onReply} className="text-xs text-ink-faint transition-colors hover:text-skyx-ink">
               답글
             </button>
           )}
-          {loggedIn && !comment.isMine && <ReportButton targetType="comment" targetId={comment.id} />}
+          {/* 접수 확인 — ReportButton은 제출 직후 걷히므로 자체 '신고 접수됨'을 띄우지 못한다.
+              이게 없으면 신고가 들어갔는지 알 길이 없어 같은 글을 또 신고하게 된다. */}
+          {reported && <span className="text-xs text-ink-faint">신고 접수됨</span>}
         </div>
+
+        {/* 삭제 확인 — ⋯ 메뉴의 '삭제'로 진입. 메뉴 클릭 한 번에 바로 지워지지 않게 한 단계 둔다. */}
+        {confirmDelete && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+            <span className="text-ink-soft">삭제할까요?</span>
+            <button
+              onClick={() => { setConfirmDelete(false); onDelete(); }}
+              className="font-medium text-red-500 hover:text-red-400"
+            >
+              예
+            </button>
+            <button onClick={() => setConfirmDelete(false)} className="text-ink-faint hover:text-ink">
+              취소
+            </button>
+          </div>
+        )}
+
+        {/* 신고 — ⋯ 메뉴의 '신고'로 진입 */}
+        {reportOpen && (
+          <ReportButton
+            targetType="comment"
+            targetId={comment.id}
+            forceOpen
+            onSubmitted={() => setReported(true)}
+            onClose={() => setReportOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -210,6 +327,8 @@ export function PlazaComments({
   const [replyPosting, setReplyPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needJoin, setNeedJoin] = useState(false);
+  // 좋아요 요청이 떠 있는 댓글 id — 렌더에 쓰이지 않으므로 state가 아니라 ref다.
+  const likingRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -276,15 +395,7 @@ export function PlazaComments({
     const trimmed = content.trim();
     const prev = c.content;
     // 낙관적 갱신 — 실패 시 원복
-    setItems((items) =>
-      items.map((p) => {
-        if (parentId) {
-          if (p.id !== parentId) return p;
-          return { ...p, replies: p.replies.map((r) => (r.id === c.id ? { ...r, content: trimmed } : r)) };
-        }
-        return p.id === c.id ? { ...p, content: trimmed } : p;
-      }),
-    );
+    setItems((items) => patchComment(items, c.id, parentId, (x) => ({ ...x, content: trimmed })));
     try {
       await fetchJson(`/api/prayers/${postId}/comments/${c.id}`, {
         method: "PATCH",
@@ -293,16 +404,53 @@ export function PlazaComments({
       });
       await load();
     } catch (err) {
-      setItems((items) =>
-        items.map((p) => {
-          if (parentId) {
-            if (p.id !== parentId) return p;
-            return { ...p, replies: p.replies.map((r) => (r.id === c.id ? { ...r, content: prev } : r)) };
-          }
-          return p.id === c.id ? { ...p, content: prev } : p;
-        }),
-      );
+      setItems((items) => patchComment(items, c.id, parentId, (x) => ({ ...x, content: prev })));
       setError(err instanceof Error ? err.message : "댓글을 수정하지 못했어요.");
+    }
+  }
+
+  /**
+   * 좋아요 토글 — 탭 즉시 하트가 반응하도록 낙관적으로 바꾸고, 서버가 준 확정값으로 덮는다.
+   * 서버 응답을 그대로 쓰므로 다른 사람이 그 사이 누른 개수도 함께 맞춰진다.
+   *
+   * 같은 댓글의 요청이 겹치면 무시한다. 연타로 POST가 두 번 날아가면 "생성"과 "삭제"가
+   * 각각 자기 시점의 확정값을 들고 돌아오는데, 응답이 도착 순서를 보장하지 않아 늦게 온
+   * 옛 응답이 최신 상태를 덮어쓸 수 있다(하트가 눌린 채로 남거나 그 반대).
+   */
+  async function toggleLike(c: CommentItem, parentId?: string) {
+    if (likingRef.current.has(c.id)) return;
+    likingRef.current.add(c.id);
+    const next = !c.iLiked;
+    setItems((items) =>
+      patchComment(items, c.id, parentId, (x) => ({
+        ...x,
+        iLiked: next,
+        likeCount: Math.max(0, x.likeCount + (next ? 1 : -1)),
+      })),
+    );
+    try {
+      const res = await fetchJson<{ ok: true; iLiked: boolean; likeCount: number }>(
+        `/api/prayers/${postId}/comments/${c.id}/like`,
+        { method: "POST" },
+      );
+      setItems((items) =>
+        patchComment(items, c.id, parentId, (x) => ({
+          ...x,
+          iLiked: res.iLiked,
+          likeCount: res.likeCount,
+        })),
+      );
+    } catch (err) {
+      setItems((items) =>
+        patchComment(items, c.id, parentId, (x) => ({
+          ...x,
+          iLiked: c.iLiked,
+          likeCount: c.likeCount,
+        })),
+      );
+      setError(err instanceof Error ? err.message : "좋아요를 처리하지 못했어요.");
+    } finally {
+      likingRef.current.delete(c.id);
     }
   }
 
@@ -347,6 +495,7 @@ export function PlazaComments({
                 onDelete={() => remove(c)}
                 onEdit={(content) => editComment(c, content)}
                 onReply={loggedIn ? () => startReply(c.id) : undefined}
+                onToggleLike={() => toggleLike(c)}
               />
 
               {c.replies.length > 0 && (
@@ -358,6 +507,7 @@ export function PlazaComments({
                         loggedIn={loggedIn}
                         onDelete={() => remove(r, c.id)}
                         onEdit={(content) => editComment(r, content, c.id)}
+                        onToggleLike={() => toggleLike(r, c.id)}
                       />
                     </li>
                   ))}

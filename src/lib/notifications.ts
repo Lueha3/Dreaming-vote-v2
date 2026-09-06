@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { sendPushToUser, sendPushToUsers } from "@/lib/push";
 import { getSuperadminEmails } from "@/lib/superadmin";
+import { FEATURES } from "@/lib/features";
 
 /**
  * 인앱 알림 타입. Header 알림 벨이 type별 아이콘을 그리는 데 쓴다.
@@ -25,11 +26,8 @@ export type NotificationType =
   | "admin_member_withdrawn" // 회원 탈퇴(자진/강제) (→ 운영진+)
   | "admin_club_created" // 새 동아리 개설(승인 대기) (→ 운영진+)
   | "admin_content_reported" // 새 콘텐츠 신고 접수 (→ 운영진+)
-  | "buddy_request" // 짝꿍 신청을 받음 (→ 신청 받은 사람)
-  | "buddy_accepted" // 내가 보낸 짝꿍 신청이 수락됨 (→ 신청한 사람)
-  | "buddy_ended" // 짝꿍 관계가 해제됨 (→ 상대방)
-  | "buddy_assigned" // (구) 새가족의 환영 짝꿍으로 지정됨 — 과거 알림 렌더 호환용
-  | "buddy_matched"; // (구) 나의 환영 짝꿍이 정해짐 — 과거 알림 렌더 호환용
+  | "admin_support_ticket_created" // 새 고객센터 문의 접수 (→ 운영진+)
+  | "support_reply"; // 내 고객센터 문의에 운영진 답글 (→ 문의 작성자)
 
 type NotificationInput = {
   userId: string;
@@ -105,8 +103,10 @@ export async function createMembershipNotification(
       userId,
       type: "membership_approved",
       title: "가입이 승인됐어요 🎉",
-      body: "환영해요! 먼저 성격유형을 골라 나에게 꼭 맞는 동아리를 찾아보세요.",
-      link: "/start",
+      body: FEATURES.archetype
+        ? "환영해요! 먼저 성격유형을 골라 나에게 꼭 맞는 동아리를 찾아보세요."
+        : "환영해요! 마음에 드는 동아리를 둘러보고 함께해요.",
+      link: FEATURES.archetype ? "/start" : "/clubs",
     });
     return;
   }

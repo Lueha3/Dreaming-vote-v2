@@ -179,7 +179,7 @@ export function OwnedClubCard({ club }: { club: OwnedClub }) {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-ink">{a.applicantNickname ?? "익명"}</p>
+                        <p className="text-sm font-medium text-ink">{a.applicantNickname ?? "탈퇴한 멤버"}</p>
                         {a.message && (
                           <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-ink-faint">
                             {a.message}

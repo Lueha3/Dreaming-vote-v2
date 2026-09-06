@@ -35,7 +35,15 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const category = resolveCategory(searchParams.get("category"));
 
+  // 광장 글은 승인 멤버 전용. 글 본문에는 기도제목(건강·가정사 등)이 담기고 작성자
+  // 표시명은 실명을 포함하므로, 목록 조회를 로그인·승인 뒤로 둔다.
+  // (예전엔 비로그인도 목록을 받아 /prayer 페이지가 그대로 렌더했다 — 공개 노출이었다.)
   const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+  }
+  const gate = membershipGate(user);
+  if (gate) return gate;
 
   const where = category === "동아리광고" ? { category } : { category, clubId: null };
 
@@ -94,7 +102,11 @@ export async function GET(req: NextRequest) {
     // 수정은 본인 글만 — 운영진도 타인 글 내용은 못 고침
     canEdit: !!user && p.userId === user.dbUserId,
     authorId: p.isAnonymous ? null : p.userId,
-    authorName: p.isAnonymous ? "익명" : p.user?.nickname ?? "익명",
+    // 닉네임이 없는 건 '익명으로 올린 글'이 아니라 '작성자가 탈퇴한 글'이다(탈퇴 시 nickname을 비운다).
+    // 둘을 같은 '익명'으로 뭉뚱그리면, 실명으로 쓴 글이 익명 글처럼 보인다 —
+    // 새가족 환영 카드(systemType: welcome)는 본인 명의로 올라가므로 탈퇴 즉시 이 오해가 생겼다.
+    // 댓글·고객센터 라우트는 이미 '탈퇴한 멤버'로 구분하고 있어 표기도 그쪽에 맞춘다.
+    authorName: p.isAnonymous ? "익명" : p.user?.nickname ?? "탈퇴한 멤버",
     authorAvatar: p.isAnonymous ? null : p.user?.avatarUrl ?? null,
     // 익명 글은 작성자 배지도 숨긴다(관리자/운영진 신원 노출 방지)
     authorRole: p.isAnonymous ? null : p.user?.role ?? null,
@@ -132,7 +144,7 @@ export async function GET(req: NextRequest) {
 /** POST /api/prayers — 광장 글 올리기 (내용 또는 사진 최소 1개 필요) */
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  if (!checkRateLimit(ip, { windowMs: 60_000, max: 10 })) {
+  if (!checkRateLimit(`prayer-create:${ip}`, { windowMs: 60_000, max: 10 })) {
     return NextResponse.json(
       { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
       { status: 429 },

@@ -51,6 +51,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       membershipNote: null,
       // 승인 시점 나이를 불변 스냅샷으로 고정 — 이후 닉네임 집단/나이 검증의 기준.
       approvedAge: user.age,
+      // 승인마다 초기화 — '승인 후 첫 진입에 성격유형 고르기 1회 안내'의 트리거.
+      // 탈퇴 후 재가입·거절 후 재신청도 새 가입이므로 다시 안내받아야 한다.
+      startPromptSeenAt: null,
       ...(autoNickname ? { nickname: autoNickname } : {}),
     },
   });

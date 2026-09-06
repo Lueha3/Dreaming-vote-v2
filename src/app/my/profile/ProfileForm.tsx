@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
-import { fetchJson } from "@/lib/http";
+import { ApiError, fetchJson } from "@/lib/http";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
-import { BuddyInfoCard } from "@/components/BuddyInfoCard";
 import { BirthdayField } from "@/components/BirthdayField";
+import { FEATURES } from "@/lib/features";
 
 /**
  * 프로필 수정 폼 (프로필 사진 전용) — 클라이언트.
@@ -153,8 +153,14 @@ export function ProfileForm({
       setTimeout(() => {
         window.location.href = "/";
       }, 1800);
-    } catch {
-      setWithdrawError("탈퇴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } catch (err) {
+      // 서버가 준 이유를 그대로 보여준다 — 예전엔 429(요청 과다)든 500이든 같은 문구라
+      // 사용자도 운영진도 무엇 때문에 막혔는지 알 수 없었다.
+      setWithdrawError(
+        err instanceof ApiError && err.message
+          ? err.message
+          : "탈퇴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      );
       setWithdrawing(false);
     }
   }
@@ -225,11 +231,10 @@ export function ProfileForm({
           {/* 휴대폰 푸시 알림 켜기/끄기 */}
           <PushNotificationToggle />
 
-          {/* 환영 짝꿍 표시 — 짝꿍이 없으면 렌더 안 함 */}
-          <BuddyInfoCard />
-
-          {/* 생일 등록 — 등록하면 생일 당일 광장 축하 카드 자동 게시 */}
-          <BirthdayField initialMonth={initialBirthMonth} initialDay={initialBirthDay} />
+          {/* 생일 등록 — 생일 당일 광장에 축하 카드를 올리는 기능이라, 광장이 꺼져 있으면 등록할 이유가 없다 */}
+          {FEATURES.plaza && (
+            <BirthdayField initialMonth={initialBirthMonth} initialDay={initialBirthDay} />
+          )}
 
           {/* 활동 닉네임 — 읽기 전용 (가입 신청 폼에 종속) */}
           <div className="glass-card p-5">

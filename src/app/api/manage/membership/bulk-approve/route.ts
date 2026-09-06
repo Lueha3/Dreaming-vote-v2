@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
           membershipDecidedAt: new Date(),
           membershipNote: null,
           approvedAge: t.age, // 승인 시점 나이 스냅샷 고정
+          startPromptSeenAt: null, // 승인마다 초기화 — 첫 진입 성격유형 안내 트리거(단건 승인과 동일)
           ...(autoNickname ? { nickname: autoNickname } : {}),
         },
       });

@@ -12,11 +12,11 @@ export const GENDERS = ["남", "여"] as const;
  */
 export const NICKNAME_RE = /^(러비아|유디코|엘리온)-(\d{2})-(.+)$/;
 
-/** 나이 → 집단 (러비아 20~26, 유디코 27~34, 엘리온 35세~) — /my/profile과 동일 규칙 */
+/** 나이 → 집단 (러비아 20~26, 유디코 27~33, 엘리온 34세~) — /my/profile과 동일 규칙 */
 export function getGroup(age: number): "러비아" | "유디코" | "엘리온" | null {
   if (age >= 20 && age <= 26) return "러비아";
-  if (age >= 27 && age <= 34) return "유디코";
-  if (age >= 35) return "엘리온";
+  if (age >= 27 && age <= 33) return "유디코";
+  if (age >= 34) return "엘리온";
   return null;
 }
 

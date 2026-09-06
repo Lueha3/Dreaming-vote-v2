@@ -1,7 +1,7 @@
 // 휴대폰 푸시 알림 서비스 워커. lib/push.ts가 보내는 JSON payload({title, body, link})를
 // 수신해 OS 알림으로 표시하고, 클릭 시 해당 링크의 탭을 포커스(없으면 새로 열기)한다.
 self.addEventListener("push", (event) => {
-  let data = { title: "꿈꾸는동아리", body: "", link: "/" };
+  let data = { title: "동아리드림", body: "", link: "/" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

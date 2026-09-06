@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { FEATURES } from "@/lib/features";
 
-/** '내 정보' 하위 3개 섹션 — 클릭 시 각 상세 라우트로 이동(URL 유지·RSC 유지). */
+/** '내 정보' 하위 섹션 — 클릭 시 각 상세 라우트로 이동(URL 유지·RSC 유지).
+ *  성격유형 기능이 꺼져 있으면 성향카드 탭은 빠지고 /my는 /my/clubs로 보내진다(my/page.tsx). */
 const TABS = [
-  { href: "/my", label: "성향카드" },
+  ...(FEATURES.archetype ? [{ href: "/my", label: "성향카드" }] : []),
   { href: "/my/clubs", label: "내 동아리" },
   { href: "/my/profile", label: "프로필 설정" },
-] as const;
+];
 
 export function MyTabs() {
   const pathname = usePathname();

@@ -5,6 +5,7 @@ import { canForceWithdraw, type Role } from "@/lib/roles";
 import { rateLimitResponse, getClientIp } from "@/lib/rateLimit";
 import { recordAudit } from "@/lib/audit";
 import { createAdminNotification } from "@/lib/notifications";
+import { withdrawUser } from "@/lib/withdrawal";
 
 type Params = { params: Promise<{ id: string }> | { id: string } };
 
@@ -52,33 +53,18 @@ export async function POST(req: NextRequest, { params }: Params) {
     );
   }
 
-  // PII 익명화 + 소프트 탈퇴 (/api/my/withdraw와 동일 로직).
-  // role도 반드시 "member"로 리셋 — 탈퇴 쿨다운이 없어진 이상(즉시 재로그인 가능),
-  // role을 안 지우면 강제 탈퇴당한 staff/admin이 곧바로 재로그인해 권한을 그대로 되찾는다.
-  await prisma.user.update({
-    where: { id },
-    data: {
-      deletedAt: new Date(),
-      membershipStatus: "none",
-      role: "member",
-      nickname: null,
-      avatarUrl: null,
-      realName: null,
-      age: null,
-      gender: null,
-      dreamGroup: null,
-      phone: null,
-      membershipAppliedAt: null,
-      membershipDecidedAt: null,
-      membershipNote: null,
-    },
-  });
-
-  // 소유 동아리 비공개 처리 (탈퇴자 동아리 자동 숨김)
-  await prisma.club.updateMany({
-    where: { ownerUserId: id },
-    data: { isActive: false },
-  });
+  // PII 파기 + 툼스톤 — 자진 탈퇴와 완전히 동일한 처리(lib/withdrawal.ts).
+  // 툼스톤이 특히 중요한 경로다: 예전엔 강제 탈퇴당한 사람이 같은 계정으로 다시
+  // 로그인하는 것만으로 행이 되살아나 재신청 대기열에 흔적 없이 올라왔다.
+  try {
+    await withdrawUser(id);
+  } catch (e) {
+    console.error(`[force-withdraw] 실패 targetId=${id}`, e);
+    return NextResponse.json(
+      { ok: false, error: "탈퇴 처리에 실패했어요. 잠시 후 다시 시도해주세요." },
+      { status: 500 },
+    );
+  }
 
   // 감사 로그 — best-effort(실패해도 탈퇴 처리는 유효).
   try {

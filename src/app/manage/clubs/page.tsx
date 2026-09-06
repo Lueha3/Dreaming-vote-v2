@@ -259,7 +259,7 @@ export default function ManageClubsPage() {
                   </div>
 
                   <p className="text-xs text-ink-faint">
-                    개설자 {club.ownerNickname ?? "익명"} · 신청 {club.applicationCount}건 ·{" "}
+                    개설자 {club.ownerNickname ?? "탈퇴한 멤버"} · 신청 {club.applicationCount}건 ·{" "}
                     {club.maxMembers ? `정원 ${club.maxMembers}명 · ` : ""}
                     {fmtDate(club.createdAt)}
                   </p>

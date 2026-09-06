@@ -160,7 +160,7 @@ function JoinForm() {
           <div className="mb-4 text-4xl">🎉</div>
           <h1 className="mb-2 text-xl font-bold text-ink">이미 승인된 멤버예요!</h1>
           <p className="mb-6 text-sm text-ink-soft">
-            동아리와 광장에 자유롭게 참여할 수 있어요.
+            동아리와 모임에 자유롭게 참여할 수 있어요.
           </p>
           <Link href="/clubs" className="btn-gold inline-block rounded-full px-6 py-3 text-sm btn-glow">
             동아리 둘러보기 →

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "꿈꾸는동아리",
-    short_name: "꿈꾸는동아리",
+    name: "동아리드림",
+    short_name: "동아리드림",
     description: "내 성향에 맞는 동아리를 찾아주는 꿈꾸는교회 청년부 동아리 플랫폼",
     start_url: "/",
     display: "standalone",

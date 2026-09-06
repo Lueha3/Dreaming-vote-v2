@@ -6,7 +6,7 @@ import { isEdited } from "@/lib/time";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "공지 — BlueHumanity",
+  title: "공지 — 동아리드림",
   description: "꿈꾸는교회 청년부 공지사항",
 };
 

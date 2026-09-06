@@ -699,7 +699,7 @@ export default function MeetingDetailPage({ params }: PageProps) {
                   <div className="min-w-0 flex-1">
                     <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
                       <span className="text-sm font-semibold text-ink">
-                        {r.authorNickname ?? "익명"}
+                        {r.authorNickname ?? "탈퇴한 멤버"}
                       </span>
                       {displayRoles(r.authorRole).map((role) => (
                         <RoleBadge key={role} role={role} size="sm" />

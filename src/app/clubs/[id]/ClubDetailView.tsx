@@ -422,7 +422,7 @@ export function ClubDetailView({ initialData }: { initialData: ClubDetailData })
                   {(club.ownerNickname ?? "익")[0]}
                 </div>
               )}
-              <span>개설자 {club.ownerNickname ?? "익명"}</span>
+              <span>개설자 {club.ownerNickname ?? "탈퇴한 멤버"}</span>
               <RoleBadge role="club_leader" size="sm" />
             </div>
           </div>

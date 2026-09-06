@@ -10,13 +10,26 @@ type Props = {
   // ⋯ 메뉴 등 외부에서 "이미 펼친 상태"로 띄우고 싶을 때. 취소/제출 시 onClose로 부모가 걷어낸다.
   forceOpen?: boolean;
   onClose?: () => void;
+  /**
+   * 접수 성공 시점 알림. forceOpen으로 띄운 경우 제출 직후 onClose로 이 컴포넌트가
+   * 걷혀버려 아래 '신고 접수됨' 표시가 렌더될 기회가 없다 — 그 확인을 부모가
+   * 대신 남길 수 있도록 성공을 따로 알린다(취소와 구분되지 않는 onClose로는 불가능).
+   */
+  onSubmitted?: () => void;
 };
 
 /**
  * 신고 버튼 — 클릭 시 사유 입력 폼을 펼쳐 POST /api/moderation/report.
  * 광장 글/댓글/동아리 어디에나 드롭인. 접수되면 '신고 접수됨'으로 고정.
  */
-export function ReportButton({ targetType, targetId, label = "신고", forceOpen, onClose }: Props) {
+export function ReportButton({
+  targetType,
+  targetId,
+  label = "신고",
+  forceOpen,
+  onClose,
+  onSubmitted,
+}: Props) {
   const [open, setOpen] = useState(!!forceOpen);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,6 +56,7 @@ export function ReportButton({ targetType, targetId, label = "신고", forceOpen
       });
       setDone(true);
       setOpen(false);
+      onSubmitted?.();
       onClose?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "신고에 실패했어요.");

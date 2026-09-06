@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
+import { FEATURES } from "@/lib/features";
 import { prisma } from "@/lib/db";
 import { MyReportsList, type ReportItem } from "./MyReportsList";
 
@@ -12,6 +14,9 @@ export const dynamic = "force-dynamic";
  * PII(phone/realName/gender/age)는 select하지 않아 클라로 새지 않는다.
  */
 export default async function MyPage() {
+  // 성격유형 기능이 꺼져 있으면 성향카드 탭 자체가 없다 — 첫 탭(내 동아리)으로 보낸다.
+  if (!FEATURES.archetype) redirect("/my/clubs");
+
   const user = await getAuthUser();
 
   /* ── 비로그인 ─────────────────────────────────────────────── */

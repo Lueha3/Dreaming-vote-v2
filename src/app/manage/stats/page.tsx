@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson } from "@/lib/http";
+import { FEATURES } from "@/lib/features";
 
 type Stats = {
   users: number;
@@ -100,8 +101,12 @@ export default function ManageStatsPage() {
 
       <Group title="서비스">
         <StatCard label="가입 유저" value={stats.users} accent="skyx" />
-        <StatCard label="생성된 성향 카드" value={stats.reports} accent="teal" />
-        <StatCard label="동아리 추천" value={stats.recommendations} accent="skyx" />
+        {FEATURES.archetype && (
+          <>
+            <StatCard label="생성된 성향 카드" value={stats.reports} accent="teal" />
+            <StatCard label="동아리 추천" value={stats.recommendations} accent="skyx" />
+          </>
+        )}
       </Group>
 
       <Group title="동아리">

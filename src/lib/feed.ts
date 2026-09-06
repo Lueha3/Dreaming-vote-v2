@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getWeekMonday } from "@/lib/week";
 import { isNewcomer } from "@/lib/newcomer";
 import type { Role } from "@/lib/roles";
+import { FEATURES } from "@/lib/features";
 
 /**
  * 홈 '오늘의 청년부' 피드 데이터 — API 라우트(/api/feed)와 홈 서버 렌더(page.tsx)가 공유한다.
@@ -99,7 +100,8 @@ const getGlobalFeed = unstable_cache(
       }),
       // 캐러셀에 실은 수(≤16)보다 실제 동아리가 많으면 '전체 보기' 유도용.
       prisma.club.count({ where: CLUB_WHERE }),
-      prisma.prayer.findMany({
+      // 광장이 꺼져 있으면 광장 글·이번 주 질문은 조회하지 않는다(빈 배열/null로 대체).
+      !FEATURES.plaza ? Promise.resolve([]) : prisma.prayer.findMany({
         // clubId: null — 정식 광장 목록(/api/prayers)과 동일하게 레거시 동아리 기도(clubId!=null) 제외.
         where: { clubId: null },
         orderBy: { createdAt: "desc" },
@@ -117,7 +119,7 @@ const getGlobalFeed = unstable_cache(
           _count: { select: { intercessions: true, comments: true, images: true } },
         },
       }),
-      prisma.icebreakerPrompt.findUnique({
+      !FEATURES.plaza ? Promise.resolve(null) : prisma.icebreakerPrompt.findUnique({
         where: { weekOf: getWeekMonday(new Date()) },
         select: { id: true, question: true, _count: { select: { answers: true } } },
       }),

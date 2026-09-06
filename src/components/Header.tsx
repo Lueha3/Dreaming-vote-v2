@@ -8,6 +8,7 @@ import { RoleBadge } from "@/components/RoleBadge";
 import { NotificationBell } from "@/components/NotificationBell";
 import { canManage, displayRoles, type Role } from "@/lib/roles";
 import { triggerHaptic } from "@/lib/haptics";
+import { FEATURES } from "@/lib/features";
 
 
 
@@ -155,8 +156,12 @@ export function Header() {
               <MobileNavLink href="/" onClick={() => setMenuOpen(false)}>🏠 홈</MobileNavLink>
               <MobileNavLink href="/clubs" onClick={() => setMenuOpen(false)}>👥 동아리 목록</MobileNavLink>
               <MobileNavLink href="/people" onClick={() => setMenuOpen(false)}>🧑‍🤝‍🧑 멤버 둘러보기</MobileNavLink>
-              <MobileNavLink href="/prayer" onClick={() => setMenuOpen(false)}>🗣 광장</MobileNavLink>
-              <MobileNavLink href="/start" onClick={() => setMenuOpen(false)}>🧭 성격유형 고르기</MobileNavLink>
+              {FEATURES.plaza && (
+                <MobileNavLink href="/prayer" onClick={() => setMenuOpen(false)}>🗣 광장</MobileNavLink>
+              )}
+              {FEATURES.archetype && (
+                <MobileNavLink href="/start" onClick={() => setMenuOpen(false)}>🧭 성격유형 고르기</MobileNavLink>
+              )}
               {/* 공지는 비로그인 유저도 볼 수 있어야 하므로 loggedIn 게이트 밖에 둔다. */}
               <MobileNavLink href="/notices" onClick={() => setMenuOpen(false)}>📢 공지</MobileNavLink>
               {!loading && loggedIn && membershipStatus && membershipStatus !== "approved" && (
@@ -173,6 +178,7 @@ export function Header() {
                   <div className="my-1.5 mx-4 border-t border-sky-line" />
                   <MobileNavLink href="/guide" onClick={() => setMenuOpen(false)}>📖 설명서</MobileNavLink>
                   <MobileNavLink href="/my" onClick={() => setMenuOpen(false)}>🪪 내 정보</MobileNavLink>
+                  <MobileNavLink href="/support" onClick={() => setMenuOpen(false)}>🎧 고객센터</MobileNavLink>
                   {canManage(role) && (
                     <MobileNavLink href="/manage" onClick={() => setMenuOpen(false)}>
                       🛠 운영 관리

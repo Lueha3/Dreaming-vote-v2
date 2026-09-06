@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { FEATURES } from "@/lib/features";
 
 /**
  * 가입 승인 시 새가족 본인 명의로 광장(일상)에 환영 카드를 자동 게시.
@@ -9,6 +10,8 @@ import { prisma } from "@/lib/db";
  * best-effort — 호출부(승인 라우트)에서 try/catch로 감싸 실패해도 승인 자체는 유효.
  */
 export async function createWelcomeCard(userId: string, nickname: string | null): Promise<void> {
+  // 광장이 꺼져 있으면 카드를 올릴 지면이 없다 — 아무도 못 보는 글과 그 알림만 쌓이므로 만들지 않는다.
+  if (!FEATURES.plaza) return;
   const name = nickname?.trim();
   await prisma.prayer.create({
     data: {

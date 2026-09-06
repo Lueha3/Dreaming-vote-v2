@@ -10,6 +10,7 @@ import {
   type NotificationTabKey,
 } from "@/lib/notificationTabs";
 import { triggerHaptic } from "@/lib/haptics";
+import { FEATURES } from "@/lib/features";
 
 function hasAuthCookie() {
   return /sb-[a-z0-9-]+-auth-token/i.test(document.cookie);
@@ -23,7 +24,9 @@ const BADGE_POLL_MS = 45_000;
 
 const TABS: { href: string; label: string; icon: TabIconKey; exact: boolean; badgeKey?: NotificationTabKey }[] = [
   { href: "/", label: "홈", icon: "home", exact: true },
-  { href: "/prayer", label: "광장", icon: "plaza", exact: false, badgeKey: "plaza" },
+  ...(FEATURES.plaza
+    ? [{ href: "/prayer", label: "광장", icon: "plaza" as const, exact: false, badgeKey: "plaza" as const }]
+    : []),
   { href: "/clubs", label: "동아리", icon: "clubs", exact: false, badgeKey: "clubs" },
   { href: "/people", label: "멤버", icon: "members", exact: false },
   { href: "/my", label: "내정보", icon: "my", exact: false, badgeKey: "my" },

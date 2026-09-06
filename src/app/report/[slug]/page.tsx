@@ -24,12 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!report.isPublic) {
     const viewer = await getAuthUser();
     if (!viewer || viewer.dbUserId !== report.userId) {
-      return { title: "비공개 성향 카드 — BlueHumanity" };
+      return { title: "비공개 성향 카드 — 동아리드림" };
     }
   }
 
   return {
-    title: `"${report.catchphrase}" — BlueHumanity`,
+    title: `"${report.catchphrase}" — 동아리드림`,
     openGraph: {
       title: report.catchphrase,
       description: "나와 닮은 성경 인물로 보는 나의 성향 카드",
